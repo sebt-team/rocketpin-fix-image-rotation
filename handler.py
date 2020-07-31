@@ -2,6 +2,7 @@ import json
 import boto3
 import requests
 import uuid
+import os
 from PIL import Image, ExifTags
 from functools import reduce
 from collections import Counter
@@ -9,7 +10,11 @@ from io import BytesIO
 from enum import Enum
 from libs.utils import Utility
 
-client=boto3.client('rekognition')
+client = boto3.client(
+    'rekognition',
+    aws_access_key_id=os.environ['USER_AWS_ACCESS_KEY'],
+    aws_secret_access_key=os.environ['USER_AWS_SECRET_KEY'] 
+)
 
 class AnalysisMethod(Enum):
     AUTO = 'auto'
@@ -37,7 +42,7 @@ def get_most_optimal_text(found_texts):
             if (len(t['DetectedText']) >= MIN_TEXT_LEN) and (t['Type'] == 'LINE'):
                 if not Utility.have_repeated_characters(t['DetectedText'], MAX_REPEATED_CHARS):
                     break
-        return found_texts[0]
+        return t
 
 
 def calculate_rotation(image_binary):
@@ -118,7 +123,7 @@ def fix_orientation(event, context):
         return response_template(500, { "message": "Arguments are missing or invalid" })
 
     # get original image
-    # image = Image.open(open('test-picture-3.jpeg','rb'))
+    # image = Image.open(open('test-picture-12.jpeg','rb'))
     response = requests.get(image_url)
     image = Image.open(BytesIO(response.content))
 
@@ -131,24 +136,31 @@ def fix_orientation(event, context):
     
     # set new image to s3
     new_image_name = f'{uuid.uuid4()}.{image.format.lower()}'
-    BUCKET = 'rocketpin-fix-image-rotation'
 
-    client = boto3.client('s3')
+    client = boto3.client(
+        's3',
+        aws_access_key_id=os.environ['USER_AWS_ACCESS_KEY'],
+        aws_secret_access_key=os.environ['USER_AWS_SECRET_KEY']  
+    )
+
     client.put_object(
         Body=Utility.image_file_to_binary(new_image, image.format), 
-        Bucket=BUCKET, 
+        Bucket=os.environ['S3_BUCKET_NAME'], 
         Key= new_image_name, 
         ContentType= Image.MIME[image.format]
     )
 
     # get url from new image
-    image_url = '%s/%s/%s' % (client.meta.endpoint_url, BUCKET, new_image_name)
+    image_url = '%s/%s/%s' % (client.meta.endpoint_url, os.environ['S3_BUCKET_NAME'], new_image_name)
     analysis_response["image_url"] = image_url
 
     # enpoint return
-    response = {
-        "statusCode": 200,
-        "body": json.dumps(analysis_response)
+    return response_template(201, analysis_response)
+
+
+def response_template(status_code, body):
+    return {
+        "statusCode": status_code,
+        "body": json.dumps(body)
     }
 
-    return response
