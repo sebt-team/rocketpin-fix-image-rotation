@@ -60,9 +60,16 @@ def calculate_rotation(image_binary):
         last_char_center_x = text_polygon_vectors[1]['X']
         last_char_center_y = (text_polygon_vectors[1]['Y'] + text_polygon_vectors[2]['Y']) / 2
 
-        print(selected_text)
+        # get the X axis of the first and second vertice of the polygon to calculate distance
+        x_points = [text_polygon_vectors[0]['X'] , text_polygon_vectors[1]['X']]
+        dist_x = max(x_points) - min(x_points)
+
+        # get the Y axis of the first and second vertice of the polygon to calculate distance
+        y_points = [text_polygon_vectors[0]['Y'] , text_polygon_vectors[1]['Y']]
+        dist_y = max(y_points) - min(y_points)
+
         # proposes image rotation
-        if (text_bounding_box['Width'] > text_bounding_box['Height']): 
+        if (dist_x > dist_y): 
             if first_char_center_x <= last_char_center_x:
                 return AllowedRotation.ROTATE_0.name
             else:
@@ -123,7 +130,7 @@ def fix_orientation(event, context):
         return response_template(500, { "message": "Arguments are missing or invalid" })
 
     # get original image
-    # image = Image.open(open('test-picture-12.jpeg','rb'))
+    # image = Image.open(open('examples/test-picture-8.jpeg','rb'))
     response = requests.get(image_url)
     image = Image.open(BytesIO(response.content))
 
